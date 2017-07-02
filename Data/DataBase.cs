@@ -1,5 +1,7 @@
 using System;
+using System.Data;
 using System.Data.SqlClient;
+using System.Threading.Tasks;
 
 namespace BuildADrink.Data
 {
@@ -11,6 +13,24 @@ namespace BuildADrink.Data
         }
 
         protected readonly SqlConnection Connection;
+
+        protected async Task<T> ExecuteAndMap<T>(Func<SqlCommand, Task<T>> processor)
+        {
+            using (var cmd = Connection.CreateCommand())
+            {
+                await Connection.OpenAsync();
+
+                try
+                {
+                    return await processor(cmd);
+                }
+                finally
+                {
+                    if (Connection.State == ConnectionState.Open)
+                        Connection.Close();
+                }
+            }
+        }
 
         public void Dispose()
         {

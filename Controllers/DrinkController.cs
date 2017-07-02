@@ -35,6 +35,12 @@ namespace BuildADrink.Controllers
             return await _data.GetDrink(id);
         }
 
+        [HttpGet("{id}/Ingredients")]
+        public async Task<IList<DrinkIngredient>> GetIngredients(int id)
+        {
+            return await _data.GetDrinkIngredients(id);
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)

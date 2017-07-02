@@ -11,13 +11,11 @@ namespace BuildADrink.Data
     {
         public async Task<IList<Drink>> GetDrinks(string firstLetter)
         {
-            var drinks = new List<Drink>();
-
             const string sql = @"SELECT * FROM Drink WHERE DrinkName LIKE @firstLetter + '%'";
-            using (var cmd = Connection.CreateCommand())
-            {
-                await Connection.OpenAsync();
-
+            
+            return await ExecuteAndMap(async (cmd) => {
+                var drinks = new List<Drink>();
+                
                 cmd.CommandText = sql;
                 cmd.CommandType = CommandType.Text;
                 cmd.Parameters.AddWithValue("@firstLetter", firstLetter);
@@ -31,27 +29,24 @@ namespace BuildADrink.Data
                             {
                                 Id = Convert.ToInt32(reader["Id"]),
                                 Name = reader["Name"].ToString(),
-                                Description =  reader["Description"].ToString()
+                                Description =  reader["Description"]?.ToString()
                             }
                         );
                     }
                 }
-            }
-
-            return drinks;
+                
+                return drinks;
+            });
         }
 
         public async Task<IList<Drink>> GetDrinks(int[] ingredientIds)
         {
-            var drinks = new List<Drink>();
-
             const string sql =
                 @"SELECT d.* FROM Drink d JOIN DrinkIngredient di ON d.DrinkId = di.DrinkId JOIN @ingredients i ON di.IngredientId = i.Id";
-            
-            using (var cmd = Connection.CreateCommand())
-            {
-                await Connection.OpenAsync();
 
+            return await ExecuteAndMap(async (cmd) =>
+            {
+                var drinks = new List<Drink>();
                 cmd.CommandText = sql;
                 cmd.CommandType = CommandType.Text;
                 var ingredients = cmd.Parameters.AddWithValue("@ingredients", ingredientIds.ToIdTableParameter());
@@ -66,23 +61,24 @@ namespace BuildADrink.Data
                             {
                                 Id = Convert.ToInt32(reader["Id"]),
                                 Name = reader["Name"].ToString(),
-                                Description =  reader["Description"].ToString()
+                                Description = reader["Description"]?.ToString()
                             }
                         );
                     }
                 }
-            }
-            
-            return drinks;
+                
+                return drinks;
+            });         
         }
 
         public async Task<Drink> GetDrink(int drinkId)
         {
-            const string sql = "SELECT * FROM Drink WHERE Id = @drinkId";
-            Drink drink = new Drink();
-            
-            using (var cmd = Connection.CreateCommand())
+            const string sql = @"SELECT * FROM Drink WHERE Id = @drinkId";
+
+            return await ExecuteAndMap(async (cmd) =>
             {
+                var drink = new Drink();
+
                 cmd.CommandText = sql;
                 cmd.CommandType = CommandType.Text;
                 cmd.Parameters.AddWithValue("@drinkId", drinkId);
@@ -94,12 +90,47 @@ namespace BuildADrink.Data
                     {
                         drink.Id = Convert.ToInt32(reader["Id"]);
                         drink.Name = reader["Name"].ToString();
-                        drink.Description = reader["Description"].ToString();
+                        drink.Description = reader["Description"]?.ToString();
                     }
                 }
-            }
 
-            return drink;
+                return drink;
+            });
+        }
+
+        public async Task<IList<DrinkIngredient>> GetDrinkIngredients(int drinkId)
+        {
+            const string sql =
+                @"SELECT i.Name AS [IngredientName], Amount, m.Name as MeasurementName FROM DrinkIngredient di JOIN Ingredient i ON di.IngredientId = i.IngredientId JOIN Measurement m ON m.MeasurementId = di.MeasurementId WHERE d.DrinkId = @drinkId";
+            
+            return await ExecuteAndMap(async (cmd) =>
+            {
+                var ingredients = new List<DrinkIngredient>();
+
+                cmd.CommandText = sql;
+                cmd.CommandType = CommandType.Text;
+                cmd.Parameters.AddWithValue("@drinkId", drinkId);
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        var ingredient = new DrinkIngredient()
+                        {
+                            Name = reader["IngredientName"].ToString(),
+                            Amount = Convert.ToDecimal(reader["Amount"]),
+                            Measurement = new Measurement()
+                            {
+                                Name = reader["MeasurementName"].ToString()
+                            }
+                        };
+                        
+                        ingredients.Add(ingredient);
+                    }
+                }
+
+                return ingredients;
+            });
         }
     }
 }
